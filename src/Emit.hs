@@ -18,6 +18,7 @@ import qualified LLVM.AST.AddrSpace              as Addr
 import qualified LLVM.AST.Attribute              as A
 import qualified LLVM.AST.CallingConvention      as CC
 import qualified LLVM.AST.Constant               as C
+import qualified LLVM.AST.InlineAssembly as IAS
 import qualified LLVM.AST.Float                  as F
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.Global                 as AST
@@ -65,8 +66,9 @@ cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Int n) = return $ cons $ C.Int 32 n
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
-  call (externf (AST.Name (strToSBS fn))) largs
-cgen x = error $ show x
+  fn' <- externf (strToSBS fn)
+  call fn' largs
+cgen x = error $ "Unimplemented operator" ++ show x
 
 -- https://stackoverflow.com/questions/4702325/best-way-to-convert-between-char-and-word8
 strToSBS :: String -> ShortByteString
@@ -162,10 +164,13 @@ emptyBlock :: Int -> BlockState
 emptyBlock i = BlockState i [] Nothing
 
 emptyCodegen :: CodegenState
-emptyCodegen = CodegenState entryBlockName Map.empty [] 1 0 Map.empty
+emptyCodegen = CodegenState entryBlockName Map.empty [] 1 0 Map.empty []
 
-execCodegen :: Codegen a -> CodegenState
-execCodegen m = execState (runCodegen m) emptyCodegen
+codegenFrom :: [AST.Definition] -> CodegenState
+codegenFrom defs' = emptyCodegen { defs = defs' }
+
+execCodegen :: [AST.Definition] -> Codegen a -> CodegenState
+execCodegen defs m = execState (runCodegen m) (codegenFrom defs)
 
 fresh :: Codegen Word
 fresh = do
@@ -207,7 +212,8 @@ data CodegenState = CodegenState
     , symtab       :: SymbolTable
     , blockCount   :: Int
     , count        :: Word
-    , names        :: Names -- Name Supply
+    , names        :: Names
+    , defs         :: [AST.Definition]
     }
     deriving Show
 
@@ -249,19 +255,18 @@ convertType S.TypeVoid  = T.void
 
 codegenTop :: S.Expr -> LLVM ()
 codegenTop (S.Function (type',name) args body) = do
-  define (convertType type') (strToSBS name) fnargs bls
   defs <- gets AST.moduleDefinitions
-  error $ show defs
+  define (convertType type') (strToSBS name) fnargs $ createBlocks $ (execCodegen defs $ do
+    entry <- addBlock entryBlockName
+    setBlock entry
+    forM args $ \(t,n) -> do
+      var <- alloca double
+      store var (local (AST.Name (strToSBS n)))
+      assign (strToSBS n) var
+    cgen body >>= ret
+    )
   where
     fnargs = toSig args
-    bls = createBlocks $ execCodegen $ do
-      entry <- addBlock entryBlockName
-      setBlock entry
-      forM args $ \(t,n) -> do
-        var <- alloca double
-        store var (local (AST.Name (strToSBS n)))
-        assign (strToSBS n) var
-      cgen body >>= ret
 
 codegenTop (S.Extern (type',name) args) = do
   external (convertType type') (strToSBS name) fnargs
@@ -278,8 +283,23 @@ local = AST.LocalReference double
 global ::  AST.Name -> C.Constant
 global = C.GlobalReference double
 
-externf :: AST.Name -> AST.Operand
-externf = AST.ConstantOperand . C.GlobalReference double
+getFn :: AST.Definition -> G.Global
+getFn (AST.GlobalDefinition g) = g
+getFn x = error $ show x
+
+paramToType :: G.Parameter -> AST.Type
+paramToType (G.Parameter t _ _) = t
+
+{-
+main: Function {linkage = External, visibility = Default, dllStorageClass = Nothing, callingConvention = C, returnAttributes = [], returnType = IntegerType {typeBits = 32}, name = Name "print", parameters = ([Parameter (FloatingPointType {floatingPointType = DoubleFP}) (Name "x") []],False), functionAttributes = [], section = Nothing, comdat = Nothing, alignment = 0, garbageCollectorName = Nothing, prefix = Nothing, basicBlocks = [], personalityFunction = Nothing, metadata = []}
+-}
+externf :: ShortByteString -> Codegen (Either a0 AST.Operand)
+externf name = do
+  fn <- (getdefn name)
+  let fn' = getFn fn
+  let rt = G.returnType fn'
+  let (params, _) = G.parameters fn'
+  return $ ((Right $ AST.ConstantOperand $ C.GlobalReference (T.PointerType (T.FunctionType rt (map paramToType params) False) (Addr.AddrSpace 0)) (AST.Name name)))
 
 -- Arithmetic and Constants
 fadd :: AST.Operand -> AST.Operand -> Codegen AST.Operand
@@ -323,9 +343,18 @@ getvar var = do
     Nothing -> error $ "Local variable not in scope: " ++ show var
 
 
+getdefn :: ShortByteString -> Codegen AST.Definition
+getdefn name = do
+  defs' <- gets defs
+  case find (\(AST.GlobalDefinition f) -> AST.name f == AST.Name name) defs' of
+    Just x  -> return x
+    Nothing -> error $ "Definition not in scope: " ++ show name
+
+
 -- Effects
-call :: AST.Operand -> [AST.Operand] -> Codegen AST.Operand
-call fn args = instr $ AST.Call Nothing CC.C [] ((Right $ AST.ConstantOperand $ C.GlobalReference (T.PointerType (T.FunctionType int [double] False) (Addr.AddrSpace 0)) (AST.Name "print"))) (toArgs args) [] []
+call :: Either IAS.InlineAssembly AST.Operand -> [AST.Operand] -> Codegen AST.Operand
+call fn args = do
+  instr $ AST.Call Nothing CC.C [] fn (toArgs args) [] []
 
 alloca :: AST.Type -> Codegen AST.Operand
 alloca ty = instr $ AST.Alloca ty Nothing 0 []

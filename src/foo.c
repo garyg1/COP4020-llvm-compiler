@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-void foo(int a) {
+void print_int(int a) {
     printf("%d\n", a);
 }
 
-void print(double a) {
+void print_float(double a) {
     printf("%f\n", a);
 }

@@ -1,5 +1,6 @@
-extern void print(float x);
+extern int print_float(float x);
+extern int print_int(int x);
 
-def void main() (
-    print(1.2)
+def int main() (
+    print_int(1)
 );

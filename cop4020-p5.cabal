@@ -1,0 +1,19 @@
+name:                cop4020-p5
+version:             0.1.0
+license:             UNLICENSED
+author:              Gary Gurlaskie
+cabal-version: 1.12
+
+executable main
+  main-is:        Main.hs
+  hs-source-dirs: src
+  build-depends:
+      base            >=4.7   && <4.14
+    , bytestring      >=0.10  && <0.11
+    , llvm-hs         >=9.0   && <9.1
+    , llvm-hs-pretty  >=0.9   && <0.10
+    , parsec          >=3.1
+    , llvm-hs-pure    >=9.0   && <9.1
+    , mtl             >=2.2.2 && <2.3
+    , text            >=1.2   && <1.3
+    , containers      >=0.6.0.1

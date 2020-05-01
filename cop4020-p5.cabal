@@ -7,6 +7,11 @@ cabal-version: 1.12
 executable main
   main-is:        Main.hs
   hs-source-dirs: src
+  other-modules:
+    Lexer
+    Parser
+    Syntax
+    Emit
   build-depends:
       base            >=4.7   && <4.14
     , bytestring      >=0.10  && <0.11
@@ -17,3 +22,4 @@ executable main
     , mtl             >=2.2.2 && <2.3
     , text            >=1.2   && <1.3
     , containers      >=0.6.0.1
+    , haskeline       >=0.7.4.3

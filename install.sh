@@ -9,7 +9,6 @@ wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 ./llvm.sh 9
 
+alias llvm-config="/usr/bin/llvm-config-9"
 # build project
 stack build
-
-alias llvm-config="/usr/bin/llvm-config-9"

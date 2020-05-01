@@ -1,3 +1,14 @@
+--------------------------------------------------------------------
+-- |
+-- Module    :  Parser
+-- Copyright :  (c) Stephen Diehl 2013
+-- License   :  MIT
+-- Maintainer:  stephen.m.diehl@gmail.com
+-- Stability :  experimental
+-- Portability: non-portable
+--
+--------------------------------------------------------------------
+
 module Parser where
 
 import Text.Parsec
@@ -21,7 +32,7 @@ unop = Ex.Prefix (UnaryOp <$> op)
 
 binary s assoc = Ex.Infix (reservedOp s >> return (BinaryOp s)) assoc
 
-op :: Parser String
+op :: Parser Name
 op = do
   whitespace
   o <- operator
@@ -38,22 +49,42 @@ binops = [[binary "=" Ex.AssocLeft]
 expr :: Parser Expr
 expr =  Ex.buildExpressionParser (binops ++ [[unop], [binop]]) factor
 
+type' :: Parser Type
+type' = try (do
+    reserved "float"
+    return TypeFloat)
+  <|> try (do
+    reserved "int"
+    return TypeInt)
+  <|> try (do
+    reserved "void"
+    return TypeVoid)
+  <|> (do
+    reserved "bool"
+    return TypeBool)
+
+declaration :: Parser Declaration
+declaration = do
+  t <- type'
+  v <- identifier
+  return (t, v)
+
 variable :: Parser Expr
 variable = Var <$> identifier
 
 function :: Parser Expr
 function = do
   reserved "def"
-  name <- identifier
-  args <- parens $ many identifier
+  name <- declaration
+  args <- parens $ commaSep declaration
   body <- expr
   return $ Function name args body
 
 extern :: Parser Expr
 extern = do
   reserved "extern"
-  name <- identifier
-  args <- parens $ many identifier
+  name <- declaration
+  args <- parens $ commaSep declaration
   return $ Extern name args
 
 call :: Parser Expr
@@ -65,8 +96,7 @@ call = do
 ifthen :: Parser Expr
 ifthen = do
   reserved "if"
-  cond <- expr
-  reserved "then"
+  cond <- parens expr
   tr <- expr
   reserved "else"
   fl <- expr
@@ -90,11 +120,10 @@ letins :: Parser Expr
 letins = do
   reserved "var"
   defs <- commaSep $ do
-    var <- identifier
+    var <- declaration
     reservedOp "="
     val <- expr
     return (var, val)
-  reserved "in"
   body <- expr
   return $ foldr (uncurry Let) body defs
 

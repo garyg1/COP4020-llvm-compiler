@@ -1,0 +1,5 @@
+extern void print(float x);
+
+def void main() (
+    print(1.2)
+);

@@ -1,0 +1,13 @@
+def fib(bool x, float y) var int a = 1 in if (x < 3 : x = 4 : x) 1 else fib(x-1)+fib(x-2);
+
+def a() var bool b = 1 in b;
+
+def int name(int a, float b) (
+    (if (a < b) (
+        var int c = d(a),
+            float x = d(b)
+        print(c, x)
+    ) else (
+        print(c, x)
+    ))
+);

@@ -1,7 +1,7 @@
 stack build
 
 echo "running"
-stack exec main > bin/main.ll
+stack exec main test/asttest.txt > bin/main.ll
 
 echo "compiling to .o"
 llc-9 -filetype=obj -o bin/main.o bin/main.ll

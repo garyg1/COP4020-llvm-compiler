@@ -1,0 +1,9 @@
+extern int print_int(int x);
+
+def int foo() (
+    1 * 2 + 3 - 4
+);
+
+def int main() (
+    print_int(foo())
+);

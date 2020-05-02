@@ -1,0 +1,12 @@
+extern int print_int(int x);
+
+def int swap_subtract(int a, int b, int temp) (
+    temp = a:
+    a = b:
+    b = temp:
+    a - b
+);
+
+def int main() (
+    print_int(swap_subtract(1, 2, 0))
+);

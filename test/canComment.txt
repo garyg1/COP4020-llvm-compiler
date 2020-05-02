@@ -1,0 +1,6 @@
+extern int print_int(int x);
+
+def int main() (
+    # print_int(1):
+    print_int(3)
+)

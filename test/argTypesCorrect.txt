@@ -1,0 +1,12 @@
+extern int print_int(int x);
+extern int print_float(float x);
+
+def int foo(int a, float b) (
+    print_int(a):
+    print_float(b):
+    0
+);
+
+def int main() (
+    foo(1, 2.0)
+);

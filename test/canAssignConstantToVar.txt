@@ -1,0 +1,10 @@
+extern int print_float(float x);
+
+def float foo(float a) (
+    a = 2.0:
+    a
+);
+
+def int main() (
+    print_float(foo(1.0))
+);

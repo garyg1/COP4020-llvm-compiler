@@ -300,6 +300,10 @@ getFn x = error $ show x
 
 getOperandType :: AST.Operand -> AST.Type
 getOperandType (AST.LocalReference t _) = t
+getOperandType (AST.ConstantOperand k) = case k of
+  C.Int _ _ -> int
+  C.Float _ -> double
+  _ -> error $ "not supported: " ++ show k
 getOperandType x = error $ "not supported: " ++ show x
 
 paramToType :: G.Parameter -> AST.Type

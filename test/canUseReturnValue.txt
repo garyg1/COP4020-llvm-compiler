@@ -1,0 +1,10 @@
+extern int print_float(float x);
+
+def float sin() (
+    # very precise sin
+    1337.0
+);
+
+def int main() (
+    print_float(sin())
+);

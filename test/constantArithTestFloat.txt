@@ -1,0 +1,9 @@
+extern int print_float(float x);
+
+def float foo() (
+    (1.0 * 2.0 + 3.0 - 4.0) / 5.0
+);
+
+def int main() (
+    print_float(foo())
+);

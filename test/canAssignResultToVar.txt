@@ -1,0 +1,15 @@
+extern int print_float(float x);
+
+def float addOne(float a) (
+    a + 1.0
+);
+
+def float addTwo(float a) (
+    a = addOne(a):
+    a = addOne(a):
+    a
+);
+
+def int main() (
+    print_float(addTwo(0.0))
+);

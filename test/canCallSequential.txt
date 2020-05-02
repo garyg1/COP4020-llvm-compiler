@@ -1,0 +1,8 @@
+extern int print_int(int x);
+extern int print_float(float x);
+
+def int main() (
+    print_int(1):
+    print_int(2):
+    print_int(3)
+);

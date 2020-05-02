@@ -1,9 +1,9 @@
 extern int print_int(int x);
 extern int print_float(float x);
-extern int k_int();
-extern float k_float();
+extern int one();
+extern float one_float();
 
 def int main() (
-    print_int(k_int()):
-    print_float(k_float())
-)
+    print_int(one()):
+    print_float(one_float())
+);

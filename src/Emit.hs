@@ -44,6 +44,7 @@ binops = Map.fromList [
     , ("*", fmul)
     , ("/", fdiv)
     , ("<", lt)
+    , (":", sep)
   ]
 
 cgen :: S.Expr -> Codegen AST.Operand
@@ -61,7 +62,10 @@ cgen (S.BinaryOp op a b) = do
       cb <- cgen b
       f ca cb
     Nothing -> error "No such operator"
-cgen (S.Var x) = getvar (strToSBS x) >>= load
+cgen (S.Var x) = do
+  var <- getvar (strToSBS x)
+  case var of 
+    (AST.LocalReference t _) -> load t var
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Int n) = return $ cons $ C.Int 32 n
 cgen (S.Call fn args) = do
@@ -178,14 +182,21 @@ fresh = do
   modify $ \s -> s { count = 1 + i }
   return $ i + 1
 
-instr :: AST.Instruction -> Codegen (AST.Operand)
-instr ins = do
+instr :: AST.Type -> AST.Instruction -> Codegen (AST.Operand)
+instr ty ins = do
   n <- fresh
   let ref = (AST.UnName n)
   blk <- current
   let i = stack blk
   modifyBlock (blk { stack = (ref AST.:= ins) : i } )
-  return $ local ref
+  return $ local ty ref
+
+-- https://github.com/sam46/Paskell/blob/master/src/Codegen.hs#L259
+anonInstr :: AST.Instruction -> Codegen ()
+anonInstr ins = do
+  blk <- current
+  let i = stack blk
+  modifyBlock (blk { stack = (AST.Do ins) : i } )
 
 terminator :: AST.Named AST.Terminator -> Codegen (AST.Named AST.Terminator)
 terminator trm = do
@@ -254,14 +265,14 @@ convertType S.TypeInt   = int
 convertType S.TypeVoid  = T.void
 
 codegenTop :: S.Expr -> LLVM ()
-codegenTop (S.Function (type',name) args body) = do
+codegenTop (S.Function (rtype,name) args body) = do
   defs <- gets AST.moduleDefinitions
-  define (convertType type') (strToSBS name) fnargs $ createBlocks $ (execCodegen defs $ do
+  define (convertType rtype) (strToSBS name) fnargs $ createBlocks $ (execCodegen defs $ do
     entry <- addBlock entryBlockName
     setBlock entry
     forM args $ \(t,n) -> do
-      var <- alloca double
-      store var (local (AST.Name (strToSBS n)))
+      var <- alloca (convertType t)
+      anonStore var (local (convertType t) (AST.Name (strToSBS n)))
       assign (strToSBS n) var
     cgen body >>= ret
     )
@@ -277,8 +288,8 @@ codegenTop _ = error "unknown"
 -------------------------------------------------------------------------------
 
 -- References
-local ::  AST.Name -> AST.Operand
-local = AST.LocalReference double
+local :: AST.Type -> AST.Name -> AST.Operand
+local = AST.LocalReference
 
 global ::  AST.Name -> C.Constant
 global = C.GlobalReference double
@@ -287,12 +298,13 @@ getFn :: AST.Definition -> G.Global
 getFn (AST.GlobalDefinition g) = g
 getFn x = error $ show x
 
+getOperandType :: AST.Operand -> AST.Type
+getOperandType (AST.LocalReference t _) = t
+getOperandType x = error $ "not supported: " ++ show x
+
 paramToType :: G.Parameter -> AST.Type
 paramToType (G.Parameter t _ _) = t
 
-{-
-main: Function {linkage = External, visibility = Default, dllStorageClass = Nothing, callingConvention = C, returnAttributes = [], returnType = IntegerType {typeBits = 32}, name = Name "print", parameters = ([Parameter (FloatingPointType {floatingPointType = DoubleFP}) (Name "x") []],False), functionAttributes = [], section = Nothing, comdat = Nothing, alignment = 0, garbageCollectorName = Nothing, prefix = Nothing, basicBlocks = [], personalityFunction = Nothing, metadata = []}
--}
 externf :: ShortByteString -> Codegen (Either a0 AST.Operand)
 externf name = do
   fn <- (getdefn name)
@@ -301,27 +313,41 @@ externf name = do
   let (params, _) = G.parameters fn'
   return $ ((Right $ AST.ConstantOperand $ C.GlobalReference (T.PointerType (T.FunctionType rt (map paramToType params) False) (Addr.AddrSpace 0)) (AST.Name name)))
 
+
+type FloatInstr = AST.FastMathFlags -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction
+type IntInstr = Bool -> Bool -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction
+
+makeTypedInstr :: FloatInstr -> IntInstr -> AST.Operand -> AST.Operand -> Codegen AST.Operand
+makeTypedInstr floatInstr intInstr a b = do
+  case (getOperandType a, getOperandType b) of
+    (AST.FloatingPointType AST.DoubleFP, _) -> instr double $ floatInstr AST.noFastMathFlags a b []
+    (AST.IntegerType 32, _) -> instr int $ intInstr False False a b []
+    (x, y) -> error $ "cannot combine: " ++ show (x, y)
+
 -- Arithmetic and Constants
 fadd :: AST.Operand -> AST.Operand -> Codegen AST.Operand
-fadd a b = instr $ AST.FAdd AST.noFastMathFlags a b []
+fadd = makeTypedInstr AST.FAdd AST.Add
 
 fsub :: AST.Operand -> AST.Operand -> Codegen AST.Operand
-fsub a b = instr $ AST.FSub AST.noFastMathFlags a b []
+fsub = makeTypedInstr AST.FSub AST.Sub
 
 fmul :: AST.Operand -> AST.Operand -> Codegen AST.Operand
-fmul a b = instr $ AST.FMul AST.noFastMathFlags a b []
+fmul = makeTypedInstr AST.FMul AST.Mul
 
 fdiv :: AST.Operand -> AST.Operand -> Codegen AST.Operand
-fdiv a b = instr $ AST.FDiv AST.noFastMathFlags a b []
+fdiv a b = instr double $ AST.FDiv AST.noFastMathFlags a b []
 
 fcmp :: FP.FloatingPointPredicate -> AST.Operand -> AST.Operand -> Codegen AST.Operand
-fcmp cond a b = instr $ AST.FCmp cond a b []
+fcmp cond a b = instr bool $ AST.FCmp cond a b []
+
+sep :: AST.Operand -> AST.Operand -> Codegen AST.Operand
+sep a b = return b
 
 cons :: C.Constant -> AST.Operand
 cons = AST.ConstantOperand
 
 uitofp :: AST.Type -> AST.Operand -> Codegen AST.Operand
-uitofp ty a = instr $ AST.UIToFP a ty []
+uitofp ty a = instr double $ AST.UIToFP a ty []
 
 toArgs :: [AST.Operand] -> [(AST.Operand, [A.ParameterAttribute])]
 toArgs = map (\x -> (x, []))
@@ -342,7 +368,6 @@ getvar var = do
     Just x  -> return x
     Nothing -> error $ "Local variable not in scope: " ++ show var
 
-
 getdefn :: ShortByteString -> Codegen AST.Definition
 getdefn name = do
   defs' <- gets defs
@@ -350,20 +375,24 @@ getdefn name = do
     Just x  -> return x
     Nothing -> error $ "Definition not in scope: " ++ show name
 
-
 -- Effects
 call :: Either IAS.InlineAssembly AST.Operand -> [AST.Operand] -> Codegen AST.Operand
 call fn args = do
-  instr $ AST.Call Nothing CC.C [] fn (toArgs args) [] []
+  instr int $ AST.Call Nothing CC.C [] fn (toArgs args) [] []
 
 alloca :: AST.Type -> Codegen AST.Operand
-alloca ty = instr $ AST.Alloca ty Nothing 0 []
+alloca ty = instr ty $ AST.Alloca ty Nothing 0 []
 
-store :: AST.Operand -> AST.Operand -> Codegen AST.Operand
-store ptr val = instr $ AST.Store False ptr val Nothing 0 []
+store :: AST.Operand -> AST.Operand -> Codegen ()
+store ptr val = do
+  anonInstr $ AST.Store False ptr val Nothing 0 []
 
-load :: AST.Operand -> Codegen AST.Operand
-load ptr = instr $ AST.Load False ptr Nothing 0 []
+anonStore :: AST.Operand -> AST.Operand -> Codegen ()
+anonStore ptr val = do
+  anonInstr $ AST.Store False ptr val Nothing 0 []
+
+load :: AST.Type -> AST.Operand -> Codegen AST.Operand
+load ty ptr = instr ty $ AST.Load False ptr Nothing 0 []
 
 -- Control Flow
 br :: AST.Name -> Codegen (AST.Named AST.Terminator)

@@ -1,0 +1,16 @@
+extern int print_float(float x);
+extern int print_add(float a, float b);
+
+def float add(float a, float b) (
+    print_add(a, b):
+    a + b
+);
+def float addOne(float a) a + 1.0;
+def float plusOneTimesTwo(float a) add(addOne(a), addOne(a));
+def float twice(float a) add(plusOneTimesTwo(a), plusOneTimesTwo(a));
+def float thrice(float a) add(twice(a), twice(a));
+
+
+def int main() (
+    print_float(thrice(10.0))
+);

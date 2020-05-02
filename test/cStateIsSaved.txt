@@ -1,0 +1,10 @@
+extern int print_int(int x);
+extern int increment();
+
+def int main() (
+    print_int(increment()):
+    print_int(increment()):
+    print_int(increment()):
+    print_int(increment()):
+    print_int(increment())
+);

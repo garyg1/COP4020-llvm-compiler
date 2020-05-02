@@ -8,7 +8,7 @@ echo "compiling to .o"
 llc-9 -filetype=obj -o bin/main.o bin/main.ll
 
 echo "compiling external libs"
-gcc src/foo.c -c -o bin/foo.o
+gcc src/defs.c -c -o bin/defs.o
 
 echo "compiling to binary"
-gcc bin/main.o bin/foo.o -o bin/main
+gcc bin/main.o bin/defs.o -o bin/main

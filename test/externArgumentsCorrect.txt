@@ -1,0 +1,6 @@
+extern int many_args(int x, float y, int z);
+extern int print_int(int x);
+
+def int main() (
+    print_int(many_args(0, 1.0, 2))
+);

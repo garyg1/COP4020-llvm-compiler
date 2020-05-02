@@ -1,0 +1,12 @@
+extern int print_int(int x);
+extern int one();
+
+def int assignExpr(int a, int b) (
+    a = a + b + (2 + one()) * 3:
+    a
+);
+
+def int main() (
+    print_int(assignExpr(1, 2))
+    # 12
+);

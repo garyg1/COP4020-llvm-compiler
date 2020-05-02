@@ -1,0 +1,14 @@
+extern int print_float(float x);
+extern float int_to_float(int x);
+
+def int foo(int a) (
+    a * 2 * 3 - a
+);
+
+def float bar(float b) (
+    b * 2.0 * 3.0 - b
+);
+
+def int main() (
+    print_float(bar(int_to_float(foo(1))))
+);

@@ -39,12 +39,11 @@ op = do
   whitespace
   return o
 
-binops = [[binary "=" Ex.AssocLeft]
-        ,[binary "*" Ex.AssocLeft,
-          binary "/" Ex.AssocLeft]
-        ,[binary "+" Ex.AssocLeft,
-          binary "-" Ex.AssocLeft]
-        ,[binary "<" Ex.AssocLeft]]
+binops = [
+  [binary "*" Ex.AssocLeft, binary "/" Ex.AssocLeft],
+  [binary "+" Ex.AssocLeft, binary "-" Ex.AssocLeft],
+  [binary "<" Ex.AssocLeft],
+  [binary "=" Ex.AssocLeft]]
 
 expr :: Parser Expr
 expr =  Ex.buildExpressionParser (binops ++ [[unop], [binop]]) factor

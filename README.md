@@ -43,7 +43,7 @@ def float k_float() (
 
 def int add_int(int a, int b) (
     a = k_int():
-    a + k_int()
+    a
 );
 
 def float add_float(float a, float b) (
@@ -84,6 +84,7 @@ A big chunk of work went into actually getting the starter code to run on my OS:
 - There were a number of issues with `extern` in the starter code (like [this one]( https://stackoverflow.com/questions/48846787/encodeexception-the-serialized-globalreference-has-type-pointertype)).
 - Also, `stack` did not want to link C libraries (both `.so` and `.a`) and the guide suggests [compiling manually](http://www.stephendiehl.com/llvm/#external-functions), which is not a good idea.
 - There were incompatability issues between `ShortByteString` and `String` in method signatures (even with `OverloadedStrings` enabled) which required essentially explicit casting.
+- Assignment of an expression to a `Var` (e.g., `x = 1 + 2`) did not work due to a precedence bug (fixed).
 
 I discovered near the end of the project that [someone else](https://github.com/sam46/Paskell) had already encountered all these problems, and that most of his approaches were nearly identical (such as `anonInstr`, `ShortByteString` issues, and `instr :: Type -> Instruction -> Codegen (Operand)`).
 

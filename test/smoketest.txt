@@ -1,0 +1,26 @@
+extern int print_int(int x);
+extern int print_float(float x);
+extern float one_float();
+extern int one();
+
+def int k_int() (
+    3
+);
+
+def float k_float() (
+    3.0
+);
+
+def int add_int_but_replace_first(int a, int b) (
+    a = k_int():
+    a + b
+);
+
+def float add_float(float a, float b) (
+    a + b + one_float() + k_float()
+);
+
+def int main() (
+    print_int(add_int_but_replace_first(1, 2)):
+    print_float(add_float(1.0, 2.0))
+);
